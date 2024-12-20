@@ -1,0 +1,14 @@
+# Ignore .env file with sensitive information (like bot token)
+.env
+
+# Ignore Go binaries and build artifacts
+*.exe
+*.out
+*.test
+
+# Ignore the `vendor` directory
+/vendor/
+
+# Ignore IDE specific files
+.idea/
+.vscode/
