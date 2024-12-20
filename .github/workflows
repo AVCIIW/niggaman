@@ -1,0 +1,30 @@
+name: Go CI
+
+on:
+  push:
+    branches:
+      - master  # or main
+  pull_request:
+    branches:
+      - master  # or main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v2
+
+    - name: Set up Go
+      uses: actions/setup-go@v2
+      with:
+        go-version: '1.20'  # Specify your Go version here
+
+    - name: Install dependencies
+      run: |
+        go mod tidy
+        go mod vendor
+
+    - name: Run tests
+      run: go test ./...
