@@ -1,6 +1,12 @@
 import discord
 import re
 import base64
+import os
+
+TOKEN = os.getenv('DISCORD_TOKEN')
+SOURCE_CHANNEL_ID = os.getenv('SOURCE_CHANNEL_ID')
+TARGET_CHANNEL_IDS = os.getenv('TARGET_CHANNEL_IDS').split(',')
+
 
 TOKEN = "MTI2NDk3NjEwNTY3NzM4OTg5NA.GVcQRm.NDWo0NXc5K5Dy0vOogdi5cR1K2Yf6TqsatvnaY"  # Replace with your Discord bot token
 
