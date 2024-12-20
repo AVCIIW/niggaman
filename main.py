@@ -1,23 +1,18 @@
 import discord
 import re
 import base64
-import os
+import os  # For environment variables
 
-TOKEN = os.getenv('DISCORD_TOKEN')
-SOURCE_CHANNEL_ID = os.getenv('SOURCE_CHANNEL_ID')
-TARGET_CHANNEL_IDS = os.getenv('TARGET_CHANNEL_IDS').split(',')
-
-
-TOKEN = "MTI2NDk3NjEwNTY3NzM4OTg5NA.GVcQRm.NDWo0NXc5K5Dy0vOogdi5cR1K2Yf6TqsatvnaY"  # Replace with your Discord bot token
+# Get the token and channel IDs from environment variables
+TOKEN = os.getenv("DISCORD_TOKEN")  # Make sure to set this in Railway
+SOURCE_CHANNEL_ID = int(os.getenv("SOURCE_CHANNEL_ID", "1319759650903560315"))  # Default to your source channel ID
+TARGET_CHANNEL_IDS = [int(cid) for cid in os.getenv("TARGET_CHANNEL_IDS", "1319759777730920539").split(",")]
 
 intents = discord.Intents.default()
-intents.message_content = True  # Enables the bot to read message content
-intents.webhooks = True
+intents.message_content = True 
+intents.webhooks = True 
 
 client = discord.Client(intents=intents)
-
-SOURCE_CHANNEL_ID = 1319759650903560315  # Replace with your source channel ID
-TARGET_CHANNEL_IDS = [1319759777730920539]  # Replace with your target channel IDs
 
 def shift(input_string, shift):
     deobfuscated_string = ""
