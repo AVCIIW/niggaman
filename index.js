@@ -1,108 +1,151 @@
-const { Client, GatewayIntentBits } = require('discord.js');
-const fs = require('fs');
-const atob = require('atob');  // Base64 decoding (use 'atob' for Node.js)
-const TOKEN = process.env.BOT_TOKEN;
+package main
 
-// Create a new client instance with the necessary intents
-const client = new Client({
-  intents: [
-    GatewayIntentBits.Guilds,
-    GatewayIntentBits.GuildMessages,
-    GatewayIntentBits.MessageContent,
-    GatewayIntentBits.Webhooks
-  ]
-});
+import (
+	"fmt"
+	"log"
+	"os"
+	"regexp"
+	"strings"
 
-// Constants for the channel IDs
-const SOURCE_CHANNEL_ID = '1319759650903560315';
-const TARGET_CHANNEL_IDS = ['1319759777730920539'];
+	"github.com/bwmarrin/discordgo"
+	"github.com/joho/godotenv"
+)
 
-// Function to shift characters (similar to Python's shift)
-function shift(inputString, shift) {
-  let deobfuscatedString = '';
-  for (let char of inputString) {
-    deobfuscatedString += String.fromCharCode(char.charCodeAt(0) - shift);
-  }
-  return deobfuscatedString;
+var (
+	Token              string
+	SourceChannelID    string
+	TargetChannelIDs   []string
+)
+
+func init() {
+	// Load environment variables from .env file
+	err := godotenv.Load()
+	if err != nil {
+		log.Fatal("Error loading .env file")
+	}
+
+	Token = os.Getenv("DISCORD_TOKEN")
+	SourceChannelID = os.Getenv("SOURCE_CHANNEL_ID")
+	TargetChannelIDs = []string{os.Getenv("TARGET_CHANNEL_IDS")}
 }
 
-// Base64 decoding function
-function base64Decode(encodedData) {
-  return atob(encodedData);
+func shift(input string, shift int) string {
+	var result strings.Builder
+	for _, char := range input {
+		result.WriteRune(char - rune(shift))
+	}
+	return result.String()
 }
 
-// Function to verify the string format
-function verifyString(s) {
-  s = base64Decode(s);
-  s = shift(s, 2);
-  const newmessage = s.split('\n').slice(0, -1).join('\n'); // Removing the last line
-
-  const pattern = /^(Adopt Me|Murder Mystery 2|Blade Ball)\nTotal Value: (-?\d+(\.\d+)?)\nInventory List: (https?:\/\/pastebin\.com\/[^\s]+|Error)$/;
-
-  return pattern.test(newmessage);
+func base64Decode(encodedData string) (string, error) {
+	decodedData, err := base64.StdEncoding.DecodeString(encodedData)
+	if err != nil {
+		return "", err
+	}
+	return string(decodedData), nil
 }
 
-// Function to get the modified message
-function getNewMessage(s) {
-  s = base64Decode(s);
-  s = shift(s, 2);
-  const newmessage = s.split('\n').slice(0, -1).join('\n'); // Removing the last line
-  return newmessage;
+func verifyString(s string) bool {
+	decoded, err := base64Decode(s)
+	if err != nil {
+		log.Println("Error decoding base64:", err)
+		return false
+	}
+
+	shifted := shift(decoded, 2)
+
+	// Regex patterns
+	patterns := []string{
+		`^Adopt Me\nTotal Value: (-?\d+(\.\d+)?)\nInventory List: (https?://pastebin\.com/[^\s]+|Error)$`,
+		`^Murder Mystery 2\nTotal Value: (-?\d+(\.\d+)?)\nInventory List: (https?://pastebin\.com/[^\s]+|Error)$`,
+		`^Blade Ball\nTotal Value: (-?\d+(\.\d+)?)\nInventory List: (https?://pastebin\.com/[^\s]+|Error)$`,
+	}
+
+	for _, pattern := range patterns {
+		match, _ := regexp.MatchString(pattern, shifted)
+		if match {
+			return true
+		}
+	}
+	return false
 }
 
-// Event when the bot is ready
-client.once('ready', () => {
-  console.log(`Logged in as ${client.user.tag}`);
-});
+func getNewMessage(s string) string {
+	decoded, err := base64Decode(s)
+	if err != nil {
+		log.Println("Error decoding base64:", err)
+		return ""
+	}
 
-// Event when a message is received
-client.on('messageCreate', async (message) => {
-  if (message.author.bot && !message.webhookId) {
-    return;
-  }
+	shifted := shift(decoded, 2)
+	lines := strings.Split(shifted, "\n")
+	// Remove the last line, assuming it's not necessary
+	if len(lines) > 0 {
+		lines = lines[:len(lines)-1]
+	}
+	return strings.Join(lines, "\n")
+}
 
-  if (message.channel.id === SOURCE_CHANNEL_ID) {
-    let shouldForward = false;
+func onMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
+	// Avoid bot's own messages
+	if m.Author.ID == s.State.User.ID {
+		return
+	}
 
-    // Check if the message mentions anyone
-    if (message.mentions.users.size > 0) {
-      return;
-    }
+	// If message is in source channel
+	if m.ChannelID == SourceChannelID {
+		// If the message should be forwarded
+		if verifyString(m.Content) {
+			for _, targetChannelID := range TargetChannelIDs {
+				targetChannel, err := s.State.Channel(targetChannelID)
+				if err != nil {
+					log.Printf("Error getting channel: %v\n", err)
+					continue
+				}
 
-    // Check if the message has any embeds
-    if (message.embeds.length > 0) {
-      return;
-    }
+				// Send the message to the target channel
+				err = s.ChannelMessageSend(targetChannel.ID, getNewMessage(m.Content))
+				if err != nil {
+					log.Printf("Error sending message: %v\n", err)
+				} else {
+					// Log the message content to hits.txt
+					file, err := os.OpenFile("hits.txt", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+					if err != nil {
+						log.Println("Error opening file:", err)
+						continue
+					}
+					defer file.Close()
 
-    // Verify if the message content is valid
-    if (verifyString(message.content)) {
-      shouldForward = true;
-    }
+					_, err = file.WriteString(getNewMessage(m.Content) + "\n")
+					if err != nil {
+						log.Println("Error writing to file:", err)
+					}
+					log.Printf("Message sent to %s\n", targetChannelID)
+				}
+			}
+		} else {
+			log.Println("Fake hit detected")
+		}
+	}
+}
 
-    if (shouldForward) {
-      for (const targetChannelId of TARGET_CHANNEL_IDS) {
-        const targetChannel = await client.channels.fetch(targetChannelId);
+func main() {
+	// Create a new Discord session using the provided bot token
+	dg, err := discordgo.New("Bot " + Token)
+	if err != nil {
+		log.Fatalf("error creating Discord session: %v", err)
+	}
 
-        if (targetChannel) {
-          try {
-            if (message.content) {
-              const newMessage = getNewMessage(message.content);
-              await targetChannel.send(newMessage);
-              console.log(`Sent to ${targetChannelId}`);
+	// Register the message handler
+	dg.AddMessageCreate(onMessage)
 
-              // Append to the file
-              fs.appendFileSync('hits.txt', newMessage + '\n');
-            }
-          } catch (e) {
-            console.error(`Error sending to ${targetChannelId}: ${e}`);
-          }
-        }
-      }
-    } else {
-      console.log('Fake hit');
-    }
-  }
-});
+	// Open a websocket connection to Discord and begin listening
+	err = dg.Open()
+	if err != nil {
+		log.Fatalf("error opening connection to Discord: %v", err)
+	}
 
-// Login the bot
-client.login(TOKEN);
+	// Wait for a signal to stop
+	fmt.Println("Bot is now running. Press CTRL+C to exit.")
+	select {}
+}
