@@ -1,1 +1,17 @@
+{
+  "name": "my-discord-bot",
+  "version": "1.0.0",
+  "description": "A Discord bot that forwards messages based on criteria",
+  "main": "bot.js",
+  "scripts": {
+    "start": "node bot.js"
+  },
+  "dependencies": {
+    "discord.js": "^14.0.0",
+    "base-64": "^1.0.0"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  }
+}
 
