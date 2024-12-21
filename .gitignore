@@ -1,5 +1,1 @@
-# Ignore .env file for security
 .env
-
-# Ignore logs and dynamically created files
-hits.txt
