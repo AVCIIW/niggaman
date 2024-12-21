@@ -4,10 +4,10 @@ import base64
 from dotenv import load_dotenv
 import os
 
-# Load environment variables from .env file
+# I-load ang mga environment variables mula sa .env file
 load_dotenv()
 
-# Get the bot token from the environment variable
+# Kunin ang token mula sa environment variable
 TOKEN = os.getenv("DISCORD_TOKEN")
 
 intents = discord.Intents.default()
